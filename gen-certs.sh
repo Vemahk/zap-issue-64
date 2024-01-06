@@ -4,4 +4,4 @@ openssl req -x509 \
     -keyout vemahk.me.key \
     -out vemahk.me.crt \
     -subj /CN=vemahk.me
-#    -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+    #    -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \

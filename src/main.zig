@@ -1,15 +1,50 @@
 const std = @import("std");
 const zap = @import("zap");
 
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+const alloc = gpa.allocator();
+
 fn on_request_verbose(r: zap.SimpleRequest) void {
     if (r.path) |the_path| {
         std.debug.print("PATH: {s}\n", .{the_path});
+        if (readFile(alloc, the_path) catch null) |data| {
+            defer alloc.free(data);
+            r.sendBody(data) catch return;
+            return;
+        }
     }
 
     if (r.query) |the_query| {
         std.debug.print("QUERY: {s}\n", .{the_query});
     }
+
     r.sendBody("<html><body><h1>Hello from ZAP!!!</h1></body></html>") catch return;
+}
+
+fn readFile(a: std.mem.Allocator, path: []const u8) !?[]const u8 {
+    const public_folder = "src/public";
+
+    const raw_relative_path = try std.fs.path.join(a, &[_][]const u8{ "./", public_folder, path });
+    defer alloc.free(raw_relative_path);
+    const real_relative_path = try std.fs.path.resolve(a, &[_][]const u8{raw_relative_path});
+    defer alloc.free(real_relative_path);
+
+    if (!std.mem.startsWith(u8, real_relative_path, public_folder)) {
+        return null;
+    }
+
+    const cwd = std.fs.cwd();
+    const file = try cwd.openFile(real_relative_path, .{});
+    defer file.close();
+
+    const stat = try file.stat();
+    if (stat.kind != .file) {
+        return null;
+    }
+
+    std.debug.print("FILE PATH: {s}\n", .{real_relative_path});
+    const file_size = @as(usize, stat.size);
+    return try file.readToEndAlloc(a, file_size);
 }
 
 fn on_request_minimal(r: zap.SimpleRequest) void {
@@ -57,7 +92,6 @@ pub fn main() !void {
         .log = true,
         .max_clients = 100000,
         .tls = tls,
-        .public_folder = "./src/public",
     });
     try listener.listen();
 
