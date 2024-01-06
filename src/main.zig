@@ -57,6 +57,7 @@ pub fn main() !void {
         .log = true,
         .max_clients = 100000,
         .tls = tls,
+        .public_folder = "./src/public",
     });
     try listener.listen();
 
